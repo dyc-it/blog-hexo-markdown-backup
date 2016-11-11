@@ -30,7 +30,27 @@ repo: git@github.com:dyc-it/dyc-it.github.io.git
 branch: master
 ```
 
+* 第一次配置备份markdown到github   
 
+```
+cd /Users/dyc/Documents/blogs/source/_posts
+git init .
+git remote add origin git@github.com:dyc-it/blog-hexo-markdown-backup.git
+git add .
+git commit -a -m "init commit"
+git push --set-upstream origin master
+```
+
+* 在新环境中配置备份markdown到github  
+
+```
+cd /Users/dyc/Documents/blogs/source/_posts
+git init .
+git clone git@github.com:dyc-it/blog-hexo-markdown-backup.git
+git add .
+git commit -a -m "msg"
+git push
+```
 ## 博客操作
 
 * 新建文章  
