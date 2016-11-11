@@ -1,6 +1,6 @@
 # blog-hexo-markdown备份
 
-
+[博客地址](https://dyc-it.github.io/)
 
 ## 新环境搭建
 
@@ -85,6 +85,7 @@ rm -rf blog-hexo-markdown-backup/
 	hexo s
 * 将页面部署到github
 	hexo g --deploy
+
 
 
 ## ref

@@ -5,7 +5,7 @@ categories: translate
 tags: Raft 翻译
 ---
 
-简单翻译了一下Diego Ongaro和John Ousterhout的论文《In Search of an Understandable Consensus Algorithm(Extended Version)》
+翻译了Diego Ongaro和John Ousterhout的论文《In Search of an Understandable Consensus Algorithm(Extended Version)》
 [原文地址](https://raft.github.io/raft.pdf)
 
 <!-- more -->
