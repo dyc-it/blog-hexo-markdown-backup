@@ -81,6 +81,8 @@ rm -rf blog-hexo-markdown-backup/
 	hexo new "article_name"
 * 生成静态页面  
 	hexo g
+* 清空缓存
+	hexo clean
 * 启动本地服务器进行查看  
 	hexo s
 * 将页面部署到github
@@ -91,49 +93,5 @@ rm -rf blog-hexo-markdown-backup/
 ## ref
 * [hexo官网](https://hexo.io)  
 * [Mac版Markdown编辑器MacDown下载](http://macdown.uranusjr.com/)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

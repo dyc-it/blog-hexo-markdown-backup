@@ -2,11 +2,10 @@
 title: Paxos simple论文翻译
 date: 2016-11-11 14:27:52
 categories: translate
-tags: paxos 翻译
+tags: paxos
 ---
 
-翻译了Lamport的论文《Paxos Made Simple》
-[原文地址](http://research.microsoft.com/en-us/um/people/lamport/pubs/paxos-simple.pdf)
+翻译了Lamport的论文《Paxos Made Simple》[原文地址](http://research.microsoft.com/en-us/um/people/lamport/pubs/paxos-simple.pdf)
 
 <!-- more -->
 
