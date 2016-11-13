@@ -81,7 +81,7 @@ rm -rf blog-hexo-markdown-backup/
 	hexo new "article_name"
 * 生成静态页面  
 	hexo g
-* 清空缓存
+* 清空缓存  
 	hexo clean
 * 启动本地服务器进行查看  
 	hexo s
