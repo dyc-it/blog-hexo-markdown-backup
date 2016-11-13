@@ -1,8 +1,33 @@
 # blog-hexo-markdown备份
 
-
+[博客地址](https://dyc-it.github.io/)
 
 ## 新环境搭建
+
+* 配置brew为国内源
+
+```
+echo 'export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles' >> ~/.bash_profile
+source ~/.bash_profile
+
+```
+
+* 安装nodejs
+
+```
+brew install npm
+```
+
+如果node启动失败，执行sudo chmod 777 /usr/local/share/systemtap/tapset
+
+* 配置nodejs使用国内源  
+vi ~/.npmrc
+
+```
+registry =https://registry.npm.taobao.org
+
+```
+
 
 * 安装node.js及相关插件
 
@@ -47,9 +72,8 @@ git push --set-upstream origin master
 cd /Users/dyc/Documents/blogs/source/_posts
 git init .
 git clone git@github.com:dyc-it/blog-hexo-markdown-backup.git
-git add .
-git commit -a -m "msg"
-git push
+mv blog-hexo-markdown-backup/* blog-hexo-markdown-backup/.git* .
+rm -rf blog-hexo-markdown-backup/
 ```
 ## 博客操作
 
@@ -61,6 +85,7 @@ git push
 	hexo s
 * 将页面部署到github
 	hexo g --deploy
+
 
 
 ## ref
