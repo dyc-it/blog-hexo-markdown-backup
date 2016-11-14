@@ -28,9 +28,8 @@ tags: Raft
 
 # 2 复制状态机
 &emsp;&emsp;一致性算法通常出现在复制状态机的情景中。在这个方法中，状态机在一批server上，计算相同状态的相同副本，即使某些server宕机了也可以继续操作。复制状态机在分布式系统中被用来解决很多容错问题。比如，只有一个leader的大规模系统，GFS，HDFS和RAMCloud，通常使用单独的复制状态机去管理leader选举和leader宕机时也必须可用的配置信息。复制状态机的例子包括Chubby和Zookeeper。 
-![](raft-paper1-1.png)  
-&emsp;&emsp;&emsp;&emsp;**图1:** 复制状态机架构。一致性算法管理着复制日志，日志包含从client发来的命令。  
-&emsp;&emsp;&emsp;&emsp;状态机按照完全相同的顺序处理日志中的命令，所以他们产生一样的输出。
+![](1.png)  
+>**图1:** 复制状态机架构。一致性算法管理着复制日志，日志包含从client发来的命令。状态机按照完全相同的顺序处理日志中的命令，所以他们产生一样的输出。
 
 &emsp;&emsp;复制状态机通常使用复制日志的方式实现，像图1中的那样。每一个存储了一个包括一系列命令的日志，状态机按照顺序执行这些日志。每一个日志包含相同的命令，并且顺序也相同，所以每一个状态机执行相同的命令序列。因为状态机是确定性的，每一个计算相同的状态并有相同的输出序列。  
 &emsp;&emsp;一致性算法的工作是保持复制日志一致。server上的一致性模块从client接受命令，让后把命令加入到一致性模块的日志中。server上的一致性模块和其他server上的一致性模块通信，确保每一份日志最终都包含相同的请求，并且顺序是一样的，即使某些server故障了。一旦命令被正确地复制了，每一个server上的状态机使用日志中的顺序处理它们，然后输出被返回给client。结果是，所有的server看起来组成了一个单一的、高度可靠的状态机。
@@ -61,11 +60,28 @@ tags: Raft
 &emsp;&emsp;我们认识到这种分析存在高度的主观性；尽管如此，我们使用两种通用的技术。第一种技术是众所周知的问题分解方法：我们尽可能将问题分隔为我们能够相对独立解决、解释和理解的部分。比如，在Raft中我们将leader选举、日志复制、安全和成员变化分开。  
 &emsp;&emsp;我们的第二个方式是通过减少需要考虑的状态数量来简化状态空间，这样就可以让系统更加一致并在可能的情况下消除不确定性。具体来说，日志不允许有空洞，Raft限制了日志可能变得不一致的方式。尽管在大多数情况下我们尝试消除不确定定性，有些情况下不确定性实际上提高了可理解性。特别地，随机方法引入非确定性，但是它们倾向于通过用类似方式处理所有可能的选择来减少状态空间（“随便选择；没有关系”）。我们使用随机化简化Raft的leader选举算法。
 # 5 Raft一致性算法
+&emsp;&emsp;Raft是一个用来管理像第2节中描述的复制日志的算法。图2总结了浓缩形式的算法供参考；图3列出了算法的关键特征；插图的元素将在本节其余的部分分段讨论。  
+Raft通过选举一个独特的leader并让这个leader完全负责复制日志的管理来实现一致性算法。这个leader从client接受日志项，在其他server上复制这个日志项，并告诉其他server什么时候将日志项应用到状态机上是安全的。有一个leader简化了复制日志的管理。比如，这个leader可以不用咨询其他的server就可以决定把日志项放在日志中的什么地方，数据流是简单地从leader流向其他server。一个leader可能会故障或者和其他server失去联系，在这种情况下，一个新的leader就会被选举出来。  
+&emsp;&emsp;鉴于领导者的方法，Raft将一致性问题分解为三个相关的独立子问题，会在下面的章节中讨论：
 
+- **Leader选举：**在已有的leader故障后，一个新的leader必须被选举出来（5.2节）。
+- **日志复制：**leader必须接受client发来的日志项，并且在集群中复制日志项，强制其他节点上的日志和leader一样（5.3节）。
+- **安全性：**Raft算法安全性的关键是图3中状态机的安全特性：如果任何server已将一个特定的日志项应用到它的状态机上，那么其他server不会再相同的索引上应用一个不同的命令。5.4节展示了Raft是如何保证这个特性的；解决方法在选举机制上使用了一个附加的限制（5.2节）。
+
+在介绍一致性算法后，本节讨论系统中可用性问题和时序起到的作用。
+
+
+![](2.png)  
+![](3.png)
 
 ## 5.1 Raft基础
 &emsp;&emsp;一个raft集群包括多个server，通常有5个，这样两个节点宕机后系统仍能正常工作。在任何时刻，server的状态都属于下面三个状态之一：leader，follower或者candidate。在正常情况下，只有一个leader，并且其他的server都是follower。follower是被动的：它们对自己不发出任何请求，它们只响应leader和candidate的请求。leader处理所有client的请求（如果client向follower发送请求，follower会把请求转发给leader）。第三种状态，candidate被用来选举一个新的leader，在5.2节中会详细介绍。图4展示了这三种状态及他们之间的转换，下面会讨论状态变迁。  
-&emsp;&emsp;raft把时间分为任意长度的term，如图5。term被编号为连续的数字。每个term以选举开始，一个或者多个candidate尝试成为leader。如果一个candidate赢得了选举，那么在term的余下部分，它将作为leader对外提供服务。在某些情况下，选举将会导致分裂的投票。在这种情况下，term会结束，并且没有leader；一个新的term（一个新的选举）会马上开始。raft保证在一个给定的term中，最多只有一个leader。
+&emsp;&emsp;raft把时间分为任意长度的term，如图5。term被编号为连续的数字。每个term以选举开始，一个或者多个candidate尝试成为leader。如果一个candidate赢得了选举，那么在term的余下部分，它将作为leader对外提供服务。在某些情况下，选举将会导致分裂的投票。在这种情况下，term会结束，并且没有leader；一个新的term（一个新的选举）会马上开始。raft保证在一个给定的term中，最多只有一个leader。  
+&emsp;&emsp;不同的server会在不同的时间观察状态的改变，某些场景下一个在整个term内server可能不会观察选举。在Raft中term扮演逻辑时钟的角色，term允许server检测过时的信息比如陈旧的leader。每一个server保存一个当前term编号，随着时间的推移，单调递增。只要server之间相互通信，当前term就会被交换；如果一个server的当前term编号比其他的server小，这个server就会把自己的当前term的值修改为大的那个。如果一个candidate或者leader发现他们的term过时了，它们会立即恢复到follower的状态。如果一个server接收到一个陈旧的term编号，它会拒绝这个请求。  
+&emsp;&emsp;Raft的server使用远程方法调用（RPC）进行通信，基本的一致性算法需要两种类型的RPC。RequestVote类型的RPC调用在选举期间被candidate启动（5.2节），AppendEntries类型的PRC调用在leader复制日志项和提供一种形式的心跳的时启动（5.3节）。第7节增加了第3种用于在server之间传输快照的PRC调用。如果没有及时收到RPC响应，server会重发RPC请求，并且多个server并发地发出RPC调用以获取最好的性能。  
+## 5.2 leader选举
+&emsp;&emsp;Raft使用心跳机制出发leader的选举。当server启动起来时，刚开始他们都是follower。一个server只要它从leader或者candidate收到有效的RPC消息，它就会保持在follower状态。leader周期性地向所有的follower发送心跳（没有日志项的AppendEntries类型的RPC请求）来保持它的权威性。如果一个follower在一段时间内没有收到消息，被称为选举超时，那么follower会假设没有可行的leader然后开始选举新的Leader。  
+&emsp;&emsp;为了开始选举，follower增加它当前的term编号然后转变为candidate状态。然后它给自己投票，并行地给集群中的其他server发送RequestVote类型的RPC请求。一个candidate继续在这个状态，直到下面三件事情中，有一件发生了：(a)它赢得了选举(b)其他的server建立的领导地位(c)一段时间过去了还是没有胜出者。在下面会分开讨论这些结果。
 
 
 
@@ -73,24 +89,3 @@ tags: Raft
 
 # TODO
 * 这篇论文是extended版本，第一版也需要看。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
