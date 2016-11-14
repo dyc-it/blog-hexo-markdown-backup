@@ -70,9 +70,8 @@ void recursive(int n, int m, int o) {
 ```
 算法的执行时间T(n, m, o) = T(n-1, m+1, o) + T(n-1, m, o+1)，执行时间的上界和m、o的关系不大，可以简化为T(n)=2T(n-1)，可以知道，T(n)=2T(n-1) = 2<sup>2</sup>T(n-2) = ... = 2<sup>n</sup>T(1) = 2<sup>n+1</sup>T(0)。所以，算法的时间复杂度为O(2<sup>n</sup>)。
 ### 例3
->其中m > 1，e > 0
-
 ```
+# 其中m > 1，e > 0
 x = m;
 y = 1;
 while (x - y > e) {
