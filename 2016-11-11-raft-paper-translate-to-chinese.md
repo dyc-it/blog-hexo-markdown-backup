@@ -73,6 +73,7 @@ Raft通过选举一个独特的leader并让这个leader完全负责复制日志�
 
 ![](2.png)  
 ![](3.png)
+>**图3:** Raft保证所有时间内这些特性都成立。章节编号指出了讨论这些特性的位置。
 
 ## 5.1 Raft基础
 &emsp;&emsp;一个raft集群包括多个server，通常有5个，这样两个节点宕机后系统仍能正常工作。在任何时刻，server的状态都属于下面三个状态之一：leader，follower或者candidate。在正常情况下，只有一个leader，并且其他的server都是follower。follower是被动的：它们对自己不发出任何请求，它们只响应leader和candidate的请求。leader处理所有client的请求（如果client向follower发送请求，follower会把请求转发给leader）。第三种状态，candidate被用来选举一个新的leader，在5.2节中会详细介绍。图4展示了这三种状态及他们之间的转换，下面会讨论状态变迁。  
@@ -81,9 +82,35 @@ Raft通过选举一个独特的leader并让这个leader完全负责复制日志�
 &emsp;&emsp;Raft的server使用远程方法调用（RPC）进行通信，基本的一致性算法需要两种类型的RPC。RequestVote类型的RPC调用在选举期间被candidate启动（5.2节），AppendEntries类型的PRC调用在leader复制日志项和提供一种形式的心跳的时启动（5.3节）。第7节增加了第3种用于在server之间传输快照的PRC调用。如果没有及时收到RPC响应，server会重发RPC请求，并且多个server并发地发出RPC调用以获取最好的性能。  
 ## 5.2 leader选举
 &emsp;&emsp;Raft使用心跳机制出发leader的选举。当server启动起来时，刚开始他们都是follower。一个server只要它从leader或者candidate收到有效的RPC消息，它就会保持在follower状态。leader周期性地向所有的follower发送心跳（没有日志项的AppendEntries类型的RPC请求）来保持它的权威性。如果一个follower在一段时间内没有收到消息，被称为选举超时，那么follower会假设没有可行的leader然后开始选举新的Leader。  
-&emsp;&emsp;为了开始选举，follower增加它当前的term编号然后转变为candidate状态。然后它给自己投票，并行地给集群中的其他server发送RequestVote类型的RPC请求。一个candidate继续在这个状态，直到下面三件事情中，有一件发生了：(a)它赢得了选举(b)其他的server建立的领导地位(c)一段时间过去了还是没有胜出者。在下面会分开讨论这些结果。
+&emsp;&emsp;为了开始选举，follower增加它当前的term编号然后转变为candidate状态。然后它给自己投票，并行地给集群中的其他server发送RequestVote类型的RPC请求。一个candidate继续在这个状态，直到下面三件事情中，有一件发生了：(a)它赢得了选举(b)其他的server建立的领导地位(c)一段时间过去了还是没有胜出者。在下面会分开讨论这些结果。  
+&emsp;&emsp;在某个term内，如果candidate收到了集群中大多数节点的投票，那么它就赢得了选举。在某个给定的term内，一个server最多会给一个candidate投票，基于先来先服务的原则（注意：5.4节在投票上增加了额外的约束）。大多数节点投票的规则保证了在一个term内最多只有一个candidate会被选举为leader（图3中的列出的选举安全特性）。一旦一个candidate赢得了选举，它就成为了leader。然后它会向所有其他的server发送心跳消息来确立它的权威地位并防止新的选举的产生。  
+&emsp;&emsp;在等待投票的时候，一个candidate可能会收到其他server发来的声称它是leader的AppendEntries类型的RPC请求。如果leader的term（在它的RPC请求里面）至少和当前这个candidate的term是一样大的，然后这个candidate识别出了这个leader是合法的，并返回到follower状态。如果RPC里面的term比candidate当前的term编号小，这个candidate会驳回这个RPC请求并保持在candidate状态。  
+&emsp;&emsp;第三种可能的结果是这个candidate既没有赢得选举，也没有输掉选举：如果同一时刻有很多个follower编程candidate，投票可能会被分散导致没有一个candidate获得大多数的投票。当这种情况发生时，每一个candidate都会超时，增加它们自己的term编号，然后开始新的选举，启动另外一轮RequestVote类型的RPC请求。但是，没有额外的方法的话，投票分散会无止尽地重复下去。  
+&emsp;&emsp;Raft使用随机的选举超时时间来确保投票分散很少发生，即使发生也会被很快解决。为了防止投票分散，首先，选举超时时间是在一个固定时间范围内的随机数（比如，150-300ms）。这会将server超时时间点分散开来，所以在大多数情况下只有一个server会超时；在其他server超时之前，赢得了选举并且发送心跳信息。相同的机制被用来处理投票分散。在开始选举的时候，每一个candidate重新开始它的随机选举超时时间，并且它等到超时时间完了后才开始下一次选举；这降低了在新的选举中出现分散投票的可能性。9.3节展示了这种方法可以让leader选举很快完成。  
+&emsp;&emsp;选举是一个说明了可理解性是如何知道我们在设计方案之间选择的例子。最初，我们计划使用排名系统：每一个candidate被分配了一个唯一的排名，用于在竞争的候选人之间选择。如果一个candidate发现另一个candidate的排名更高，那么排名低的candidate会返回到follower状态，所以，排名更高的candidate更容易赢得下一次选举。我们发现这种方法引起了可用性问题（如果排名高的server故障了，一个排名更低的server可能需要超时并重新成为candidate，但是如果这样进行的太快，它可以重置选举一个leader的进展）。我们对算法做了多次调整，但是每次调整后，新的问题就来了。最终我们总结，随机尝试的方法更为明显且更容易理解。
+# 5.3 log复制
+&emsp;&emsp;只要一个leader被选举出来，它开始服务client的请求。每个client的请求包括被复制状态机执行的命令。leader将命令加入到它的log中作为一个新的entry，然后向其他的server并发地发起AppendEntries类型的RPC请求来复制该entry。当entry被成功复制后（像下面描述的那样），leader将entry应用到它的状态机并将执行的结果返回给client。如果follower崩溃或者运行缓慢，或者网络丢包了，leader将会无限期地发送AppendEntries类型的RPC请求（即使leader已经响应了client），直到follower存储了所有的entry。  
+![图6](6.png)
+>  **图6:** log是由entry组成的，entry按顺序编号。每一个entry包含创建它的term的编号（每个框中的数字）和状态机的命令。如果entry可以安全地被应用到状态机上，那么这个entry就被认为是已经提交了的。 
+ 
+&emsp;&emsp;log被组织成图6中的样子。每一个entry存储了一个状态机命令和leader收到这条命令时对应的term编号。entry中的term编号用于检测log的不连续性，确保图3中的某些特性。每一个entry也包含一个标识它在log中位置的整数索引。  
+&emsp;&emsp;leader决定什么时候将entry应用到状态机是安全的；这样的entry被称为已提交。Raft保证所有已经提交的entry是持久的，并且最终会被所有的可用的状态机执行。只要leader创建了这个entry并且把它复制到大多数的server上，这个entry就被提交了（比如，图6中索引为7的entry）。这也提交了leader的log中前面的entry，包括被以前的leader创建的entry。5.4节讨论了在leader改变后应用这条规则的细微之处，并且这也显示了对提交的定义是安全的。leader跟踪它知道的提交中的最高索引，包括将来的AppendEntries类型RPC请求（包括心跳）中的索引，这样其他的server最终会发现。只要一个follower学习到一个entry被提交了，follower就会把entry应用到它本地的状态机（依照log中的顺序）。  
+&emsp;&emsp;我们设计Raft的日志机制来保持不同server上日志的高度一致性。这不仅仅是让系统的行为更为简单，并且让它更容易预测，但这是一个用来保证安全的重要组件。Raft维护下面的一些特性，一起构成图3中的Log Matching Property：
+
+- 如果不同log中的两个entry拥有相同的索引和term编号，那么它们存储的是相同的命令。
+- 如果不同log中的两个entry拥有相同的索引和term编号，那么这个entry前面的log是完全一样的。
+
+&emsp;&emsp;第一个特性来自这样的事实，leader基于给定的log索引和term编号，最多创建一个entry，在log中entry永远不会改变它们自己的位置。第二个特性是通过AppendEntries类型的RPC请求执行的一致性检查来保证的。当发送一个AppendEntries类型的RPC请求时，leader将前一个entry的log编号和term编号包含到请求里面。如果follower在它的log中没有找到相同索引和term编号的entry，那么就拒绝这个新的entry。（译注：即leader中的前一个entry在follower中不存在，就拒绝加入entry）一致性检查用作规划步骤：log的初始的空的状态满足Log Matching Property，并且一致性检查在log扩展的时候可以保持Log Matching Property。结果，不管什么时候，只要AppendEntries类型的RPC请求返回成功，leader都知道follower的log在新entry之前和leader都是一样的。  
+&emsp;&emsp;在正常操作期间，leader和follower的log保持一致，所以AppendEntries一致性检查永远不会失败。但是，leader崩溃可能会让log不一致（老的leader可能没有将它所有的log复制到其他server上去）。这些不一致可能会由一系列leader和follower的崩溃组成。图7说明了follower的log可能和新leader不一致的方法。一个follower可能会丢失已经在leader上存在的entry，它可能会有在新的leader不存在的entry。log中丢失和外来的entry可能会导致多个term编号。
+![图七](7.png)
+> **图7:** 当顶部的leader上台后，在follower的log中，（a-f）场景中的任意一个都有可能出现。每个框都代表一个entry；框里面的数字是term编号。一个follower可能会丢失entry（a-b），可能会有额外的未提交的entry（c-d），或者都有（e-f）。比如，场景f产生的原因可能是这样的，在编号为2的term中，该server是一个leader，添加了一些entry到它的log中，但是在没有提交这些entry之前，server崩溃了；然后这个快速重启，在编号为3的term中继续做leader，然后又加了几个entry在它的log中；在编号为2或3的term中，没有一个entry被提交，然后这个server又挂了，在接下来的几个term中这个server也没有起起来。
+
+&emsp;&emsp;在Raft中，leader通过强制follower复制leader的log来处理非一致性。这意味着follower的log中和leader不一致的地方将会被覆盖。5.4节将展示当和一个或多个限制关联的时候，这是安全的。  
+&emsp;&emsp;为了让follower的log和自己一致，leader必须找到两者的log之间最新的一样的位置，然后将这个位置后面所有follower的entry都删掉，并将leader在这个位置之后的entry都发送给follower。所有的这些操作都是由AppendEntries类型的RPC请求在执行一致性检查的时候作出的。leader对所有的follower都维护了一个nextIndex，就是leader将发送给follower的下一个entry的索引。当一个leader上台之后，它将所有的nextIndex初始化为leader的log中的最后一个索引（比如图7中的索引11）。如果一个follower的log和leader不一致，在下一个AppendEntries类型RPC请求时AppendEntries一致性检查将会失败。在被拒绝之后，leader减少nextIndex然后重新发送AppendEntries类型的RPC请求。最终nextIndex会在leader和follower的log一致的地方。当这发生时，AppendEntries类型的RPC请求将会成功，会移除follower中和leader冲突的entry，并将leader中的新的log添加到follower中（如果有的话）。只要AppendEntries类型的RPC请求成功，follower上的log将会和leader一致，并且在这个term剩下的部分也会保持这种状态。  
+&emsp;&emsp;
 
 
+Page7,last paragraph
 
 
 

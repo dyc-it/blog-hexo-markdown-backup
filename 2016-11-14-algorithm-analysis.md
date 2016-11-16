@@ -5,7 +5,7 @@ categories: algorithm
 tags: algorithm
 ---
 
-算法的时间复杂度和空间复杂度分析
+算法的时间复杂度分析
 
 <!-- more -->
 
@@ -45,8 +45,9 @@ def increase_number(n):
 - NP类问题（Non-deterministic Polynomial）  
 Ο(2<sup>n</sup>)、Ο(n!)称为指数时间，被计算机科学家归类为NP问题
 
-## 例子
-### 例1
+## Demo
+### Ex.1
+
 
 ```
 int foo(int n) {
@@ -57,7 +58,7 @@ int foo(int n) {
 }
 ```
 基本语句是if语句，该语句执行了n次，所以时间复杂度为O(n)
-### 例2
+### Ex.2
 ```
 void recursive(int n, int m, int o) {
     if (n <= 0) {
@@ -69,7 +70,7 @@ void recursive(int n, int m, int o) {
 }
 ```
 算法的执行时间T(n, m, o) = T(n-1, m+1, o) + T(n-1, m, o+1)，执行时间的上界和m、o的关系不大，可以简化为T(n)=2T(n-1)，可以知道，T(n)=2T(n-1) = 2<sup>2</sup>T(n-2) = ... = 2<sup>n</sup>T(1) = 2<sup>n+1</sup>T(0)。所以，算法的时间复杂度为O(2<sup>n</sup>)。
-### 例3
+### Ex.3
 ```
 # 其中m > 1，e > 0
 x = m;
@@ -81,13 +82,30 @@ while (x - y > e) {
 print(x);
 ```
 由于m>1，所以x = (x + y) / 2语句会让x的值变小；m不变的情况下，y = m / x语句会让y的值变大，x-y的值会越来越小。假设x >> y，y = 1，那么x = (x + y) / 2语句相当于每次让x减半，所以循环执行的次数不会超过logm；y = m / x语句会让y的值变大的情况下，循环执行的次数更不会超过logm了。所以，算法的时间复杂度是logm。
+### Ex.4
 
-### 例4
 ```
 假设某算法的计算时间可用递推关系式T(n) = 2T(n/2) + n，T(1) = 1表示，则该算法的时间复杂度为？
 ```
+
 T(n) = 2T(n/2) + n = 2(2T(n/4) + n/2) + n = ... = 2<sup>m</sup>T(n/2<sup>m</sup>) + m * n  
 递归到T(1)时，n = 2<sup>m</sup>，即m = log(n)  
 所以T(n) = nT(1) + nlog(n)，该算法的时间复杂度是nlog(n)
+### Ex.5
 
+```
+假设某算法的计算时间可用递推关系式T(n) = 25T(n/5) + n*n，T(1) = 1表示，则该算法的时间复杂度为？
+```
+
+T(n) = 25T(n/5) + n<sup>2</sup> = 25(25T(n/5/5) + (n/5)<sup>2</sup>) + n<sup>2</sup> = 5<sup>4</sup>T(n/5<sup>2</sup>) + 2n<sup>2</sup> = ... = 5<sup>2m</sup>(n/5<sup>m</sup>) + m*n<sup>2</sup>   
+递归到T(1)时，K<sub>m</sub>/5<sup>m+1</sup> = 1，由于K<sbu>m</sub>=n/5<sup>m</sup>，所以n = 5<sup>m</sup> ,即m = log<sub>5</sub>(n)   
+所以T(n) = n<sup>2</sup>T(1) + n<sup>2</sup>log<sub>5</sub>(n)，该算法的时间复杂度是n<sup>2</sup>log(n)
+### Ex.6
+
+```
+假设某算法的计算时间可用递推关系式T(n) = 1 + T(n/2) + n*n，T(1) = 1表示，则该算法的时间复杂度为？
+```  
+
+T(n) = 1 + T(n/2) + n<sup>2</sup> = 1 + (1 + T(n/2<sup>2</sup>) + (n/2)<sup>2</sup>) + n<sup>2</sup> = ... = m + T(n/2<sup>m</sup>) + n<sup>2</sup>(1+1/2<sup>2</sup>+...+1/2<sup>m</sup>)  
+显而易见，该算法的时间复杂度是n<sup>2</sup>
 
