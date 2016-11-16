@@ -1,0 +1,63 @@
+---
+title: sqlmap
+date: 2016-11-16 10:09:27
+categories: security
+tags: security
+---
+
+sqlmap的使用  
+[官网地址](http://sqlmap.org/)
+<!-- more -->
+# 介绍
+&emsp;&emsp;SqlMap是一个开源的渗透测试工具，它可以自动化地检测并利用SQL注入漏洞，然后接管数据库服务器。它配备了强大的检测引擎，为许多为终极渗透测试人员准备的小众的特性，从数据库指纹识别，从数据库提取数据，到访问底层文件系统并在操作系统上执行命令。  
+# 功能
+
+- 完全支持MySQL，Oracle，PostgreSQL，Microsoft SQL Server，MicroSoft Access，IBM DB2，SQLite，Firebird，Sybase，SAP MaxDB，HSQLDB和Informix。  
+- 完全支持6种SQL注入技术：基于布尔的盲注，基于时间的盲注，基于报错的盲注，联合查询注入，堆查询注入和带外。
+- 支持直接连接到数据库，需要提供DBMS的认证信息，IP地址、端口和数据库名，而不是通过SQL注入通过认证。
+- 支持枚举用户，密码的哈希值，权限，角色，数据库表和列信息。
+- 自动识别密码的哈希格式，并支持使用基于字典的攻击破解密码。
+- 支持完全转储数据库表，也可以根据范围或者列转储。用户也可以转储每列的某个范围内的字符。
+- 支持根据数据库名搜索,从所有的数据库中搜索表,或者在所有的数据库表中指定列进行搜索。比如,为了找到包含指定应用程序认证信息的表,那么可以找列名包含name和pass的表。
+- 当数据库是MySQL,PostgreSQL或者Microsoft SQL Server时,支持从数据库的底层文件系统上下载和上传文件。
+- 当数据库是MySQL,PostgreSQL或者Microsoft SQL Server时,支持从数据库的底层操作系统上执行任意命令并得到命令的标准输出。
+- 支持在攻击者和数据库的底层操作系统之间建立带外TCP连接,这个通道可以是交互式的命令提示符,一个Meterpreter会话或者VNC图形界面。
+- 通过Metasploit的getsystem命令可以提升数据库进程的用户权限。
+
+# 安装
+
+```
+git clone https://github.com/sqlmapproject/sqlmap.git sqlmap-dev
+cd sqlmap-dev/
+python sqlmap.py -h
+```
+
+# 演示
+## 寻找潜在的攻击目标
+使用Google搜索php?id=1,找到一个url
+```
+http://www.test.com/index.php?id=1
+```
+
+
+```
+python sqlmap.py -u http://www.zixem.altervista.org/SQLi/level1.php?id=1 --dbs
+
+python sqlmap.py -u http://www.a-ma520.com/ad.php?id=1 --dbs
+```
+
+
+
+
+
+## 指纹识别
+
+
+## 注入
+### 基于布尔的盲注
+### 基于时间的盲注
+### 基于报错的盲注
+### 联合查询注入
+### 堆查询注入
+### 带外
+
