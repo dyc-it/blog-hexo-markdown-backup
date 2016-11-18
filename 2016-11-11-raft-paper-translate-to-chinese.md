@@ -125,16 +125,16 @@ Raft通过选举一个独特的leader并让这个leader完全负责复制日志�
 &emsp;&emsp;为了消除像图8中那样的错误,Raft不使用计算副本数的方式来提交前一个term中的log entry。只有leader当前的term中的log entry使用计算副本数的方式进行提交;只要一个当前term的entry通过这种方式被提交了,基于Log Matching Property那么这个entry前面的entry都被间接提交了。有一些场景下,leader可以可以安全地推断出一个旧的log entry被提交了(比如,如果那个entry被存储在每个server上),但是Raft为了简单采用了更为保守的方法。  
 &emsp;&emsp;Raft在提交规则中引入了额外的复杂性,是因为当leader从前面的term复制log entry时,log entry保留了它们以前的term编号。在其他一致性算法中,如果一个新的leader从前面的term中复制entry,它必须使用新的term编号。Raft的方法使调试log entry更为容易,因为log entry在不同的时间和log中保持了相同的term编号。另外,Raft中的新leader比其他算法从前面的term发送更少的log entry(其他算法在提交log entry前,必须发送冗余的log entry来给他们重新编号)。
 ### 5.4.3 安全争论
-&emsp;&emsp;给出了完整的Raft算法,现在我们可以在Leader Completeness Property城里上做更为精确的争论(这个争论是基于安全证明;见9.2节)。我们假设Leader Completeness Property不成立,然后我们证明了矛盾。假设term T的leader(leaderT)从它的term中提交了一个log entry,但是这个log entry没有被leader存储在后面的term中。定义
+&emsp;&emsp;给出了完整的Raft算法,现在我们可以在Leader Completeness Property成立上做更为精确的争论(这个争论是基于安全证明;见9.2节)。我们假设Leader Completeness Property不成立,然后我们证明了矛盾。假设term T的leader(leaderT)从它的term中提交了一个log entry,但是这个log entry没有被leader存储在后面的term中。定义
 
 
 
 
 ## 5.5 follower和candidate崩溃
 &emsp;&emsp;前面的部分我们集中在leader崩溃的场景。follower和candidate崩溃的场景比leader崩溃更容易处理,对follower和candidate崩溃的处理方式是一样的。如果一个follower或者candidate崩溃了,那么后面发送给它们的RequestVote和AppendEntries请求会失效。Raft通过无穷地尝试的方式来处理这些错误;如果崩溃的server恢复了,那么这些RPC会成功地完成。如果一个server在完成了RPC请求但是还没有响应这个请求时崩溃了,那么在这个server恢复后它还是会收到相同的RPC请求。Raft的RPC请求是幂等的,所以不会有什么影响。比如,如果一个follower接受到了一个AppendEntries RPC请求,但是请求中的log entry已经存在于follower,follower会忽略这个请求。
-## 5.6 时间和可用性
-&emsp;&emsp;我们对Raft的一个要求是,它的安全性不能依赖于时间:仅仅是因为某些事件发生的快或者慢一点时,系统不能产生错误的结果。但是,可用性(系统及时响应客户的能力)不可避免地依赖于时间。比如,如果消息交换的时间比服务器崩溃然后恢复的的典型时间长,候选人将不会停留足够长的时间来赢得选举;没有一个稳定的leader,Raft就不能工作了。  
-&emsp;&emsp;leader选举是Raft中时间很重要的一个方面。只要系统满足下面的时间需求,Raft就可以选举并维持一个稳定的leader:  
+## 5.6 时序和可用性
+&emsp;&emsp;我们对Raft的一个要求是,它的安全性不能依赖于时序:仅仅是因为某些事件发生的快或者慢一点时,系统不能产生错误的结果。但是,可用性(系统及时响应客户的能力)不可避免地依赖于时序。比如,如果消息交换的时间比服务器崩溃然后恢复的的典型时间长,候选人将不会停留足够长的时间来赢得选举;没有一个稳定的leader,Raft就不能工作了。  
+&emsp;&emsp;leader选举是Raft中时序很重要的一个方面。只要系统满足下面的时间需求,Raft就可以选举并维持一个稳定的leader:  
 
 ```
 broadcastTime << electionTimeout << MTBF
