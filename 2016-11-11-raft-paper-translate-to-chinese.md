@@ -119,13 +119,20 @@ Raft通过选举一个独特的leader并让这个leader完全负责复制日志�
 &emsp;&emsp;Raft通过比较索引和log中最后一些entry的term编号,来判断哪个log新一点。如果两个log的最后的entry有不同的term编号。那么term编号大的log新一点。如果两个log的term编号一样,log的长度长的更新一点。  
 ### 5.4.2 从前面的term提交entry
 ![图8](8.png)
->**图8:**这个时间序列展示了,为什么一个新的leader无法使用上一个term的log entry来判断提交与否。
+>**图8:**这个时间序列展示了,为什么一个新的leader无法使用上一个term的log entry来判断提交与否。在(a)中S1是leader,在索引为2的位置,leader只复制了一部分log entry。在(b)中,S1崩溃了;S5收到了S3、S4和它自己的投票在编号为3的term中被选为leader,在索引为2的位置,S5已经接受了一个和上一个leader不同的log entry。在(c)中,S5崩溃了,S1重启启动并被选为leader,然后继续复制。在这时,编号为2的term已经被复制到大多数的server上了,但是它没有被提交。如(d)所示,如果S1崩溃了,S5可能被选举为leader(来自S2、S3、S4的投票),S5会用它在编号为3的term里的entry覆盖其他server的log entry。但是, 在(e)中,如果S1在它崩溃前把它当前term上的entry复制到大多数server上,然后这个entry被提交了(S5就不能赢得选举了)。在这时,log中所有前面的entry也被提交了。
 
 &emsp;&emsp;就像5.3节描述的那样,leader知道,如果它当前term中的entry被存储到大多数的server上,这个entry就被提交了。如果一个leader在提交一个entry前宕机了, 将来的leader会继续这个复制过程。但是,leader不能立即判断前一个term里面的entry被存储到大多数server上就被提交了。图8展示了一种场景,所有旧的log entry都被存储到大多数的server上,但是还是被后面的leader覆盖了。  
-&emsp;&emsp;
+&emsp;&emsp;为了消除像图8中那样的错误,Raft不使用计算副本数的方式来提交前一个term中的log entry。只有leader当前的term中的log entry使用计算副本数的方式进行提交;只要一个当前term的entry通过这种方式被提交了,基于Log Matching Property那么这个entry前面的entry都被间接提交了。有一些场景下,leader可以可以安全地推断出一个旧的log entry被提交了(比如,如果那个entry被存储在每个server上),但是Raft为了简单采用了更为保守的方法。  
+&emsp;&emsp;Raft在提交规则中引入了额外的复杂性,是因为当leader从前面的term复制log entry时,log entry保留了它们以前的term编号。在其他一致性算法中,如果一个新的leader从前面的term中复制entry,它必须使用新的term编号。Raft的方法使调试log entry更为容易,因为log entry在不同的时间和log中保持了相同的term编号。另外,Raft中的新leader比其他算法从前面的term发送更少的log entry(其他算法在提交log entry前,必须发送冗余的log entry来给他们重新编号)。
+### 5.4.3 安全争论
+&emsp;&emsp;给出了完整的Raft算法,现在我们可以在Leader Completeness Property城里上做更为精确的争论(这个争论是基于安全证明;见9.2节)。我们假设Leader Completeness Property不成立,然后我们证明了矛盾。假设term T的leader(leaderT)从它的term中提交了一个log entry,但是这个log entry没有被leader存储在后面的term中。定义
 
 
-Page7-Figure8
+
+
+## 5.5follower和candidate崩溃
+&emsp;&emsp;前面的部分我们集中在leader崩溃的场景。
+
 
 
 # TODO
