@@ -130,8 +130,37 @@ Raft通过选举一个独特的leader并让这个leader完全负责复制日志�
 
 
 
-## 5.5follower和candidate崩溃
-&emsp;&emsp;前面的部分我们集中在leader崩溃的场景。
+## 5.5 follower和candidate崩溃
+&emsp;&emsp;前面的部分我们集中在leader崩溃的场景。follower和candidate崩溃的场景比leader崩溃更容易处理,对follower和candidate崩溃的处理方式是一样的。如果一个follower或者candidate崩溃了,那么后面发送给它们的RequestVote和AppendEntries请求会失效。Raft通过无穷地尝试的方式来处理这些错误;如果崩溃的server恢复了,那么这些RPC会成功地完成。如果一个server在完成了RPC请求但是还没有响应这个请求时崩溃了,那么在这个server恢复后它还是会收到相同的RPC请求。Raft的RPC请求是幂等的,所以不会有什么影响。比如,如果一个follower接受到了一个AppendEntries RPC请求,但是请求中的log entry已经存在于follower,follower会忽略这个请求。
+## 5.6 时间和可用性
+&emsp;&emsp;我们对Raft的一个要求是,它的安全性不能依赖于时间:仅仅是因为某些事件发生的快或者慢一点时,系统不能产生错误的结果。但是,可用性(系统及时响应客户的能力)不可避免地依赖于时间。比如,如果消息交换的时间比服务器崩溃然后恢复的的典型时间长,候选人将不会停留足够长的时间来赢得选举;没有一个稳定的leader,Raft就不能工作了。  
+&emsp;&emsp;leader选举是Raft中时间很重要的一个方面。只要系统满足下面的时间需求,Raft就可以选举并维持一个稳定的leader:  
+
+```
+broadcastTime << electionTimeout << MTBF
+```
+&emsp;&emsp;在这个不等式中,broadcastTime是一个server并行地发送RPC请求到集群中的其他server并收到响应的平均时间;electionTimeout是5.2节中描述的选举超时时间;MTBF(Mean Time Between Failures)是一个server故障后恢复的平均时间。broadcastTime应该比electionTimeout小一个数量级,以便leader可以在开始选举的时候可靠地发送心跳消息来保持follower;选举超时使用的随机方法,这个不等式也使投票分散基本不可能。electionTimeout比MTBF小一个数量级,这样系统就可以稳定地运行。当leader崩溃时,系统可能在electionTimeout这个时间段内不可用;我们希望这只代表总时间的一小部分。  
+&emsp;&emsp;broadcastTime和MTBF是底层系统的属性,但是electionTimeout是我们必须选择的。Raft的RPC需要接受者将消息持久化到稳定存储上,所以broadcastTimeout从0.5ms到20ms不等,这依赖于使用的存储技术。结果是,electionTimeout大概在10ms到500ms之间。典型地,server的MTBF是几个月或者更多,轻松地满足了时间需求。  
+
+# 6 集群成员改变
+
+
+
+# 7 日志压缩
+
+
+# 8 和client交互
+&emsp;&emsp;本节描述了client如何和Raft交互,包括client如何找到集群的leader,Raft如果支持线性化语义。这些问题适用于所有基于一致性的系统,并且Raft的解决方案和其他系统类似。  
+&emsp;&emsp;Raft的client将它们的所有请求都发送到leader。当一个client启动后,它连接到一个随机选中的server。如果client的第一选择不是leader,那么server会拒绝这个请求,并提供server醉倒的最近当选的leader的信息(AppendEntries请求包含了leader的网络地址)。如果leader崩溃了,client的请求将会超时;client将会继续尝试随机选择server。  
+&emsp;&emsp;我们在Raft上的目标是实现线性语义(每个操作似乎只在其调用和响应之间的某一瞬间执行一次)。但是,到现在为止的描述中我们发现Raft可以多次执行一个命令:比如,如果leader在提交了log entry后,在响应client前崩溃了,这个client会向新leader发送同样的命令,导致这个命令被执行两次。解决方法是为client的每个命令分配一个唯一的序列号。然后,状态机跟踪每个client最近处理的命令的序列号,还有响应一起。如果它接受到了一个命令,发现它的序列号已经被处理了,状态机不会重新执行这个命令,然后立即响应client。  
+&emsp;&emsp;不写任何东西到log中可以处理只读的操作。但是,没有额外的方法,这将会有返回陈旧数据的风险,因为响应请求的leader可能已经被新的leader取代了,但是它并不知情。线性读必须不能返回过期的数据,Raft需要两个额外的预防措施来保证它并且不使用日志。首先,leader必须有哪些entry被提交了的最少的信息。Leader Completeness Property保证了一个leader拥有所有提交了的entry,但是在term开始时,它可能不知道这些是什么。为了弄明白,它需要在它的term中取提交一个entry。Raft通过让每个leader在每个term开始时,提交一个no-op空的entry到log中来处理这样的情况。其次,leader在处理一个只读请求前(如果一个最近的leader被选举出来了,它的信息可能是过时的)必须检查它是否还是leader。Raft通过让leader和集群中的大多数交换心跳信息然后再响应只读请求来处理这样的问题。或者leader可以依赖心跳机制提供一种新式的出租,但是这样就需要时间来保证安全性(它假定有界时钟偏移)。
+
+
+# 9 实现和评估
+
+
+
+# 10 相关的工作
 
 
 
