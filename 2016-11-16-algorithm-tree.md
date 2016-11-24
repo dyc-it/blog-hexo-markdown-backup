@@ -1,8 +1,8 @@
 ---
-title: algorithm-tree
+title: 数据结构——树
 date: 2016-11-16 15:45:35
 categories: algorithm
-tags: algorithm
+tags: tree
 ---
 
 树相关算法
@@ -64,8 +64,13 @@ Full Binary Tree:除最后一层无任何子结点,每一层上的所有结点�
 二叉查找树的优势在于：查找、插入的时间复杂度较低，为O(logn)。  
 二叉查找树的中序遍历输出的是递增的序列。
 
+### [Huffman树](https://zh.wikipedia.org/wiki/%E9%9C%8D%E5%A4%AB%E6%9B%BC%E7%BC%96%E7%A0%81)
+带权路径最小的树。
+二叉Huffman树中只有度为0和2的结点,所有如果Huffman树叶子结点右n0个,那么Huffman树总结点数为2*n0-1
+
+
 ### 平衡树
-当且仅当两个子树的高度差不超过1时，这个数是平衡二叉树。也叫AVL树
+当且仅当两个子树的高度差不超过1时，这个树是平衡二叉树。也叫AVL树
 它的左子树和右子树都是平衡二叉树。
 
 ### 红黑树
@@ -79,8 +84,6 @@ Full Binary Tree:除最后一层无任何子结点,每一层上的所有结点�
 
 ### kd树
 
-### Huffman树
-带权路径最小的树。
 
 
 
