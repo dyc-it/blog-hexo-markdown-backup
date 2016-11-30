@@ -34,12 +34,68 @@ st2stream.service                      enabled
 查看packs的所有操作：  
 st2 action list --pack packs
 
-# ansible集成
-https://docs.stackstorm.com/packs.html#getting-a-pack
+# 与ansible集成
+[安装pack](https://docs.stackstorm.com/packs.html#getting-a-pack)  
 安装ansible的pack  
 st2 run packs.install packs=ansible repo_url=https://github.com/StackStorm/st2contrib.git   
 如果报错：fatal: destination path '/root/st2contrib' already exists and is not an empty directory.  
 先删掉路径'/root/st2contrib' 
+
+```
+st2 run packs.download packs=ansible
+st2 run packs.setup_virtualenv packs=ansible
+st2 run packs.load register=all
+st2 run packs.restart_component servicename=st2sensorcontainer
+
+
+st2 action list --pack=ansible
+st2 sensor list --pack=ansible
+st2 trigger list --pack=ansible
+
+
+st2 run packs.deploy packs=ansible
+
+
+
+git clone https://github.com/StackStorm/st2contrib.git
+cd st2contrib
+git remote -v
+git remote set-url origin git@git.elenet.me:cloud/st2contrib.git
+git remote -v
+
+
+st2 run packs.install packs=ansible repo_url=https://git.elenet.me/cloud/st2contrib.git 
+
+
+st2 run packs.install packs=ansible
+
+```
+## 通过st2调用ansible
+首先安装ansible  
+```
+yum -y install ansible
+```
+
+```
+st2 run ansible.command_local args='echo $TERM'
+
+st2 run ansible.command connection=local inventory_file='127.0.0.1,' hosts=all args='echo $SHELL'
+
+st2 run ansible.command inventory_file='10.12.10.57,' hosts=all args='ip a'
+
+
+
+# 执行一个playbook
+st2 --debug  run ansible.playbook playbook=/data/mesos_ops/playbooks/agent.yml inventory_file=/data/mesos_ops/inventories/hosts extra_vars='@/data/mesos_ops/extra_vars/all.yml'
+
+st2 --debug  run ansible.playbook playbook=/data/mesos_ops/playbooks/agent.yml inventory_file='10.12.10.57  DOCKER_FIXED_CIDR="10.12.10.208/29",' extra_vars='@/data/mesos_ops/extra_vars/all.yml'
+
+
+```
+
+
+
+
 
 
 
